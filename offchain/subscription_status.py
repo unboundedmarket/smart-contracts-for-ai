@@ -13,6 +13,8 @@ from offchain.utils import (
     get_contract,
     context,
     to_address,
+    safe_decode_token_name,
+    format_token_display_name,
 )
 from onchain import contract
 
@@ -90,9 +92,13 @@ def analyze_subscription_status(datum: contract.SubscriptionDatum, utxo) -> dict
         estimated_end_date = next_payment
     
     # Payment token info
+    token_policy = datum.payment_token.policy_id.payload.hex() if datum.payment_token.policy_id.payload else ""
+    token_name = safe_decode_token_name(datum.payment_token.token_name)
+    
     token_info = {
-        "policy_id": datum.payment_token.policy_id.payload.hex() if datum.payment_token.policy_id.payload else "",
-        "token_name": datum.payment_token.token_name.decode() if datum.payment_token.token_name else "",
+        "policy_id": token_policy,
+        "token_name": token_name,
+        "display_name": format_token_display_name(token_name, token_policy),
         "is_ada": not datum.payment_token.policy_id.payload and not datum.payment_token.token_name
     }
     
@@ -146,7 +152,7 @@ def print_subscription_status(status: dict):
     print(f"   Model Owner: {status['model_owner_pubkeyhash'][:32]}...")
     
     print(f"\n💰 Payment Details:")
-    token_display = "ADA" if status['payment_token']['is_ada'] else f"{status['payment_token']['token_name']}"
+    token_display = status['payment_token']['display_name']
     print(f"   Payment Amount: {status['payment_amount_ada']} {token_display}")
     print(f"   Payment Interval: {status['payment_interval_days']} days")
     print(f"   Current Balance: {status['current_balance_ada']} {token_display}")

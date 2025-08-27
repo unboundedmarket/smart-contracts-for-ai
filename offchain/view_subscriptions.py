@@ -13,6 +13,8 @@ from offchain.utils import (
     get_contract,
     context,
     to_address,
+    safe_decode_token_name,
+    format_token_display_name,
 )
 from onchain import contract
 
@@ -24,6 +26,11 @@ def format_subscription_info(datum: contract.SubscriptionDatum, utxo, current_ba
     payment_ada = datum.payment_amount / 1_000_000  # Convert lovelace to ADA
     balance_ada = current_balance / 1_000_000
     
+    # Safely handle token information
+    token_policy = datum.payment_token.policy_id.payload.hex() if datum.payment_token.policy_id.payload else "ADA"
+    token_name = safe_decode_token_name(datum.payment_token.token_name)
+    token_display_name = format_token_display_name(token_name, token_policy)
+    
     return {
         "utxo_id": f"{utxo.input.transaction_id}#{utxo.input.index}",
         "owner_pubkeyhash": datum.owner_pubkeyhash.payload.hex(),
@@ -34,8 +41,9 @@ def format_subscription_info(datum: contract.SubscriptionDatum, utxo, current_ba
         "current_balance_ada": balance_ada,
         "payments_remaining": int(balance_ada / payment_ada) if payment_ada > 0 else 0,
         "is_payment_due": datetime.utcnow() >= next_payment,
-        "token_policy": datum.payment_token.policy_id.payload.hex() if datum.payment_token.policy_id.payload else "ADA",
-        "token_name": datum.payment_token.token_name.decode() if datum.payment_token.token_name else ""
+        "token_policy": token_policy,
+        "token_name": token_name,
+        "token_display_name": token_display_name
     }
 
 
@@ -118,7 +126,7 @@ def print_subscriptions(subscriptions: List[dict], title: str):
         print(f"   Owner: {sub['owner_pubkeyhash'][:16]}...")
         print(f"   Model Owner: {sub['model_owner_pubkeyhash'][:16]}...")
         if sub['token_policy'] != "ADA":
-            print(f"   Payment Token: {sub['token_name']} ({sub['token_policy'][:16]}...)")
+            print(f"   Payment Token: {sub['token_display_name']} ({sub['token_policy'][:16]}...)")
 
 
 @click.command()

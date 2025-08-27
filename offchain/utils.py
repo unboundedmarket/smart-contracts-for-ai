@@ -93,3 +93,46 @@ def to_address(a: Address):
         to_payment_credential(a.payment_part),
         to_staking_credential(a.staking_part),
     )
+
+
+def safe_decode_token_name(token_name_bytes) -> str:
+    """
+    Safely decode token name, handling both UTF-8 and binary data.
+    
+    Args:
+        token_name_bytes: Raw bytes of the token name
+        
+    Returns:
+        str: UTF-8 decoded string if possible, otherwise hex representation with 0x prefix
+    """
+    if not token_name_bytes:
+        return ""
+    
+    try:
+        # Try UTF-8 decoding first
+        return token_name_bytes.decode('utf-8')
+    except UnicodeDecodeError:
+        # If UTF-8 fails, return hex representation with prefix
+        return f"0x{token_name_bytes.hex()}"
+
+
+def format_token_display_name(token_name: str, policy_id: str = "") -> str:
+    """
+    Format token name for user-friendly display.
+    
+    Args:
+        token_name: Token name (may be hex if binary)
+        policy_id: Token policy ID (optional)
+        
+    Returns:
+        str: Formatted display name
+    """
+    if not token_name:
+        return "ADA"
+    
+    if token_name.startswith("0x"):
+        # Binary token name - show as hex with indication
+        return f"Token({token_name})"
+    else:
+        # UTF-8 token name - display as-is
+        return token_name
