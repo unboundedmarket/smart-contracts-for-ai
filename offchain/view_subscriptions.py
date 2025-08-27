@@ -31,6 +31,16 @@ def format_subscription_info(datum: contract.SubscriptionDatum, utxo, current_ba
     token_name = safe_decode_token_name(datum.payment_token.token_name)
     token_display_name = format_token_display_name(token_name, token_policy)
     
+    # Handle pause status
+    is_paused = getattr(datum, 'is_paused', False)  # Default to False for backwards compatibility
+    pause_start_time = getattr(datum, 'pause_start_time', None)
+    
+    # Calculate pause duration if paused
+    pause_duration_days = 0
+    if is_paused and pause_start_time:
+        pause_duration = (datetime.utcnow().timestamp() * 1000) - pause_start_time.time
+        pause_duration_days = pause_duration / (1000 * 60 * 60 * 24)
+    
     return {
         "utxo_id": f"{utxo.input.transaction_id}#{utxo.input.index}",
         "owner_pubkeyhash": datum.owner_pubkeyhash.payload.hex(),
@@ -40,10 +50,13 @@ def format_subscription_info(datum: contract.SubscriptionDatum, utxo, current_ba
         "payment_amount_ada": payment_ada,
         "current_balance_ada": balance_ada,
         "payments_remaining": int(balance_ada / payment_ada) if payment_ada > 0 else 0,
-        "is_payment_due": datetime.utcnow() >= next_payment,
+        "is_payment_due": datetime.utcnow() >= next_payment and not is_paused,
         "token_policy": token_policy,
         "token_name": token_name,
-        "token_display_name": token_display_name
+        "token_display_name": token_display_name,
+        "is_paused": is_paused,
+        "pause_duration_days": pause_duration_days,
+        "pause_start_time": datetime.fromtimestamp(pause_start_time.time / 1000).strftime("%Y-%m-%d %H:%M:%S UTC") if is_paused and pause_start_time else None
     }
 
 
@@ -118,11 +131,24 @@ def print_subscriptions(subscriptions: List[dict], title: str):
         return
     
     for i, sub in enumerate(subscriptions, 1):
+        # Determine status display
+        if sub['is_paused']:
+            status = f"PAUSED (for {sub['pause_duration_days']:.1f} days)"
+        elif sub['is_payment_due']:
+            status = "OVERDUE"
+        else:
+            status = "ACTIVE"
+        
         print(f"\n{i}. Subscription {sub['utxo_id'][:16]}...")
-        print(f"   Next Payment: {sub['next_payment_date']} ({'OVERDUE' if sub['is_payment_due'] else 'PENDING'})")
+        print(f"   Status: {status}")
+        print(f"   Next Payment: {sub['next_payment_date']}")
         print(f"   Payment Amount: {sub['payment_amount_ada']} ADA every {sub['payment_interval_days']} days")
         print(f"   Current Balance: {sub['current_balance_ada']} ADA")
         print(f"   Payments Remaining: {sub['payments_remaining']}")
+        
+        if sub['is_paused']:
+            print(f"   Paused Since: {sub['pause_start_time']}")
+        
         print(f"   Owner: {sub['owner_pubkeyhash'][:16]}...")
         print(f"   Model Owner: {sub['model_owner_pubkeyhash'][:16]}...")
         if sub['token_policy'] != "ADA":

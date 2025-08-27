@@ -44,6 +44,11 @@ def find_redeemable_subscriptions(model_owner_address) -> List[dict]:
             if datum.model_owner_pubkeyhash.payload != model_owner_pkh.payload:
                 continue
             
+            # Check if subscription is paused
+            is_paused = getattr(datum, 'is_paused', False)
+            if is_paused:
+                continue  # Skip paused subscriptions
+            
             # Check if payment is due
             next_payment = datetime.fromtimestamp(datum.next_payment_date.time / 1000)
             if current_time >= next_payment:
@@ -57,7 +62,8 @@ def find_redeemable_subscriptions(model_owner_address) -> List[dict]:
                         "payment_amount_ada": datum.payment_amount / 1_000_000,
                         "next_payment_date": next_payment,
                         "days_overdue": (current_time - next_payment).days,
-                        "owner_pubkeyhash": datum.owner_pubkeyhash.payload.hex()
+                        "owner_pubkeyhash": datum.owner_pubkeyhash.payload.hex(),
+                        "is_paused": is_paused
                     }
                     redeemable_subscriptions.append(subscription_info)
         
@@ -167,7 +173,9 @@ def create_bulk_payment_transaction(
                 new_payment_date,
                 datum.payment_intervall,
                 datum.payment_amount,
-                datum.payment_token
+                datum.payment_token,
+                getattr(datum, 'is_paused', False),
+                getattr(datum, 'pause_start_time', contract.FinitePOSIXTime(0))
             )
             
             # Calculate remaining balance after payment

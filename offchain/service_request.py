@@ -51,16 +51,18 @@ def verify_subscription_status(user_wallet: str, model_owner_wallet: str, networ
                     next_payment = datetime.fromtimestamp(datum.next_payment_date.time / 1000)
                     current_balance = utxo.output.amount.coin
                     payment_amount = datum.payment_amount
+                    is_paused = getattr(datum, 'is_paused', False)
                     
                     subscription_info = {
                         "utxo_id": f"{utxo.input.transaction_id}#{utxo.input.index}",
-                        "is_active": current_balance >= payment_amount,
+                        "is_active": current_balance >= payment_amount and not is_paused,
                         "balance_ada": current_balance / 1_000_000,
                         "payment_amount_ada": payment_amount / 1_000_000,
                         "next_payment_date": next_payment,
                         "is_payment_overdue": current_time >= next_payment,
                         "payments_remaining": int(current_balance / payment_amount) if payment_amount > 0 else 0,
-                        "can_use_service": current_balance >= payment_amount and current_time < next_payment
+                        "is_paused": is_paused,
+                        "can_use_service": current_balance >= payment_amount and current_time < next_payment and not is_paused
                     }
                     
                     return subscription_info
@@ -201,7 +203,9 @@ def create_service_request_with_verification(
         print(f"   Can use service: {subscription_info['can_use_service']}")
         
         if not subscription_info['can_use_service']:
-            if subscription_info['is_payment_overdue']:
+            if subscription_info['is_paused']:
+                error_msg = "Service is temporarily paused by the model owner"
+            elif subscription_info['is_payment_overdue']:
                 error_msg = "Payment is overdue - please make payment to continue using service"
             else:
                 error_msg = "Insufficient subscription balance"
@@ -274,6 +278,8 @@ def main(input_text: str, user_wallet: str, model_owner: str, model_name: str,
             print(f"   Active: {sub_info['is_active']}")
             print(f"   Balance: {sub_info['balance_ada']:.6f} ADA")
             print(f"   Payment Overdue: {sub_info['is_payment_overdue']}")
+            if sub_info.get('is_paused'):
+                print(f"   ⏸️  Service is PAUSED by model owner")
     
     # Save to file if requested
     if output_file:

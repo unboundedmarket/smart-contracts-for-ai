@@ -52,6 +52,8 @@ def main(wallet_user: str = "user1", wallet_model_owner: str = "owner1"):
         int(10 * 1000),
         int(1e6),
         Token(b"", b""),
+        False,  # is_paused = False (new subscriptions start unpaused)
+        FinitePOSIXTime(0),  # pause_start_time = 0 (not paused)
     )
 
     builder.add_output(

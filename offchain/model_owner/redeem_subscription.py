@@ -82,10 +82,12 @@ def main():
     updated_datum = contract.SubscriptionDatum(
         owner_datum.owner_pubkeyhash,
         owner_datum.model_owner_pubkeyhash,
-        owner_datum.next_payment_date,
+        next_payment_date,
         owner_datum.payment_intervall,
         owner_datum.payment_amount,
-        owner_datum.payment_token
+        owner_datum.payment_token,
+        owner_datum.is_paused,
+        owner_datum.pause_start_time
     )
 
     print(owner_datum.to_cbor_hex(), "\n\n", updated_datum.to_cbor_hex())
