@@ -124,7 +124,21 @@ The required packages for this setup are listed in `requirements.txt`. To instal
 │   ├── service_request.py     # AI inference with payment verification
 │   ├── utils.py               # Off-chain utility functions
 │   └── secret.py              # Configuration and secrets
+├── tests/                      # Comprehensive test suite
+│   ├── unit/                  # Unit tests for contract logic
+│   │   ├── test_contract.py   # Smart contract validation tests
+│   │   └── test_property_based.py # Property-based tests with hypothesis
+│   ├── integration/           # End-to-end workflow tests
+│   │   └── test_subscription_flows.py # Complete subscription lifecycle tests
+│   ├── emulator/              # Blockchain simulation tests
+│   │   └── test_blockchain_simulation.py # PyCardano emulator tests
+│   ├── validation/            # Contract validation and reporting
+│   │   └── test_contract_validation.py # Performance and security validation
+│   └── conftest.py            # Shared test fixtures and configuration
 ├── requirements.txt            # List of required Python packages
+├── requirements-dev.txt        # Development and testing dependencies
+├── pytest.ini                 # Test configuration
+├── Makefile                    # Test automation and development commands
 └── README.md                  # This readme file
 ```
 
@@ -151,7 +165,93 @@ The required packages for this setup are listed in `requirements.txt`. To instal
 2. All changes require proper user signatures
 3. Cancelled subscriptions return remaining funds to users
 
-## Testing and Development
+## Smart Contract Testing
+
+Our project includes a complete test suite that validates smart contract logic, blockchain interactions, and system performance. We are trying to follow a best-practice approach for blockchain testing. 
+
+### Test Types
+
+**Unit Tests** - Test individual contract functions and validation logic
+- Test signature verification for all operations
+- Test time lock enforcement for payments  
+- Test fund protection mechanisms
+- Test pause/resume functionality
+
+**Integration Tests** - Test complete workflows from start to finish
+- Test full subscription creation process
+- Test payment redemption cycles
+- Test subscription cancellation flows
+- Test AI service integration with payments
+
+**Emulator Tests** - Test blockchain interactions without real network
+- Simulate contract transactions
+- Test UTXO management
+- Test multiple subscription scenarios
+- Validate transaction costs and timing
+
+**Property-Based Tests** - Test contract with random inputs to find edge cases
+- Generate random valid/invalid subscription data
+- Test contract invariants (funds never disappear, signatures always required)
+
+**Validation Tests** - Generate reports on contract performance and security
+- Check contract size limits (must be under 16KB)
+- Analyze transaction costs for each operation
+- Validate security properties and access controls
+- Generate performance metrics and efficiency reports
+
+### Running Tests
+
+Install test dependencies:
+```bash
+pip install -r requirements-dev.txt
+```
+
+Run all tests:
+```bash
+make test
+```
+
+Run specific test types:
+```bash
+# Unit tests only
+make test-unit
+
+# Integration tests only  
+make test-integration
+
+# Emulator tests only
+make test-emulator
+
+# Property-based tests only
+make test-property
+
+# Validation tests only
+make test-validation
+```
+
+Generate test coverage report:
+```bash
+make coverage
+```
+
+This creates an HTML report in `htmlcov/` showing which code is tested. Current coverage: 40%.
+
+### Test Results and Reports
+
+Tests generate validation artifacts that can be used to test any changes and help guarantee security properties set in the contract. 
+
+
+### Quick Development Workflow
+
+```bash
+# Check code quality and run fast tests
+make check
+
+# Full development pipeline (run before committing)
+make ci
+```
+
+### Manual Testing and Development
 
 ### Running AI Inference Tests
 ```bash
