@@ -4,6 +4,7 @@ Shows active subscriptions with their current status and details
 """
 
 import click
+import json
 from datetime import datetime
 from typing import List, Optional
 from pycardano import Network
@@ -121,8 +122,24 @@ def get_all_subscriptions() -> List[dict]:
     return subscriptions
 
 
-def print_subscriptions(subscriptions: List[dict], title: str):
-    """Pretty print subscription information"""
+def print_subscriptions(subscriptions: List[dict], title: str, output_format: str = "text"):
+    """Pretty print subscription information or output as JSON"""
+    if output_format == "json":
+        # Prepare JSON output
+        json_data = {
+            "title": title,
+            "subscriptions": subscriptions,
+            "summary": {
+                "total_subscriptions": len(subscriptions),
+                "overdue_payments": sum(1 for sub in subscriptions if sub['is_payment_due']),
+                "total_locked_ada": sum(sub['current_balance_ada'] for sub in subscriptions),
+                "paused_subscriptions": sum(1 for sub in subscriptions if sub['is_paused'])
+            }
+        }
+        print(json.dumps(json_data, indent=2, default=str))
+        return
+    
+    # Original text output
     print(f"\n{title}")
     print("=" * len(title))
     
@@ -161,7 +178,9 @@ def print_subscriptions(subscriptions: List[dict], title: str):
               help='Role: user (subscriber), owner (model owner), or all subscriptions')
 @click.option('--network', '-n', type=click.Choice(['testnet', 'mainnet']), default='testnet',
               help='Network to use')
-def main(wallet: Optional[str], role: str, network: str):
+@click.option('--format', '-f', type=click.Choice(['text', 'json']), default='text',
+              help='Output format: text (human-readable) or json (machine-readable)')
+def main(wallet: Optional[str], role: str, network: str, format: str):
     """View subscriptions based on wallet and role"""
     
     network_enum = Network.TESTNET if network == 'testnet' else Network.MAINNET
@@ -172,10 +191,10 @@ def main(wallet: Optional[str], role: str, network: str):
             
             if role == 'user':
                 subscriptions = get_subscriptions_for_user(address)
-                print_subscriptions(subscriptions, f"Subscriptions owned by {wallet}")
+                print_subscriptions(subscriptions, f"Subscriptions owned by {wallet}", format)
             else:  # role == 'owner'
                 subscriptions = get_subscriptions_for_model_owner(address)
-                print_subscriptions(subscriptions, f"Subscriptions managed by {wallet}")
+                print_subscriptions(subscriptions, f"Subscriptions managed by {wallet}", format)
                 
         except Exception as e:
             print(f"Error loading wallet {wallet}: {e}")
@@ -184,17 +203,18 @@ def main(wallet: Optional[str], role: str, network: str):
     else:
         # Show all subscriptions
         subscriptions = get_all_subscriptions()
-        print_subscriptions(subscriptions, "All Active Subscriptions")
+        print_subscriptions(subscriptions, "All Active Subscriptions", format)
         
-        # Summary statistics
-        total_subs = len(subscriptions)
-        overdue_subs = sum(1 for sub in subscriptions if sub['is_payment_due'])
-        total_locked_ada = sum(sub['current_balance_ada'] for sub in subscriptions)
-        
-        print(f"\n📊 Summary:")
-        print(f"   Total Subscriptions: {total_subs}")
-        print(f"   Overdue Payments: {overdue_subs}")
-        print(f"   Total Locked ADA: {total_locked_ada:.2f}")
+        # Summary statistics (only show in text format)
+        if format == "text":
+            total_subs = len(subscriptions)
+            overdue_subs = sum(1 for sub in subscriptions if sub['is_payment_due'])
+            total_locked_ada = sum(sub['current_balance_ada'] for sub in subscriptions)
+            
+            print(f"\n📊 Summary:")
+            print(f"   Total Subscriptions: {total_subs}")
+            print(f"   Overdue Payments: {overdue_subs}")
+            print(f"   Total Locked ADA: {total_locked_ada:.2f}")
 
 
 if __name__ == "__main__":

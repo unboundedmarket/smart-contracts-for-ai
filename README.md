@@ -66,6 +66,7 @@ The off-chain system handles all blockchain interactions:
 - **Payment History**: Track transaction history with analytics and revenue reports
 - **Bulk Payment Processing**: Efficiently process multiple subscription payments in one transaction
 - **AI Service Integration**: Submit AI inference requests with automatic payment verification
+- **JSON Export**: Export subscription data in JSON format for programmatic access and integration
 
 ## Development Setup
 
@@ -83,7 +84,6 @@ The required packages for this setup are listed in `requirements.txt`. To instal
 1. Clone the repository:
 
     ```bash
-    git clone [https://github.com/your-repo/ai-cardano-smart-contracts.git](https://github.com/unboundedmarket/Smart-Contracts-for-AI.git)
     cd ai-cardano-smart-contracts
     ```
 
@@ -288,6 +288,10 @@ python offchain/view_subscriptions.py --wallet user1 --role user
 
 # View subscriptions managed by a model owner
 python offchain/view_subscriptions.py --wallet owner1 --role owner
+
+# Export subscription data as JSON for programmatic access
+python offchain/view_subscriptions.py --role all --format json
+python offchain/view_subscriptions.py --wallet user1 --role user --format json
 ```
 
 #### Checking Subscription Status
@@ -297,6 +301,10 @@ python offchain/subscription_status.py --wallet user1
 
 # Check status by specific UTXO ID
 python offchain/subscription_status.py --utxo-id "transaction_id#index"
+
+# Export detailed status as JSON
+python offchain/subscription_status.py --wallet user1 --format json
+python offchain/subscription_status.py --utxo-id "transaction_id#index" --format json
 ```
 
 #### Payment History and Analytics

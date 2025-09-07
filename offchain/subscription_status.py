@@ -4,6 +4,7 @@ Shows payment history, remaining balance, and next payment information
 """
 
 import click
+import json
 from datetime import datetime, timedelta
 from typing import Optional
 from pycardano import Network
@@ -137,8 +138,17 @@ def analyze_subscription_status(datum: contract.SubscriptionDatum, utxo) -> dict
     }
 
 
-def print_subscription_status(status: dict):
-    """Pretty print subscription status"""
+def print_subscription_status(status: dict, output_format: str = "text"):
+    """Pretty print subscription status or output as JSON"""
+    if output_format == "json":
+        # Convert datetime objects to strings for JSON serialization
+        json_status = status.copy()
+        json_status['next_payment_date'] = status['next_payment_date'].strftime('%Y-%m-%d %H:%M:%S UTC')
+        json_status['estimated_end_date'] = status['estimated_end_date'].strftime('%Y-%m-%d %H:%M:%S UTC')
+        print(json.dumps(json_status, indent=2, default=str))
+        return
+    
+    # Original text output
     print(f"\n🔍 Subscription Status Report")
     print("=" * 50)
     
@@ -194,7 +204,9 @@ def print_subscription_status(status: dict):
 @click.option('--wallet', '-w', help='Wallet name to check subscription for (user1, owner1, etc.)')
 @click.option('--network', '-n', type=click.Choice(['testnet', 'mainnet']), default='testnet',
               help='Network to use')
-def main(utxo_id: Optional[str], wallet: Optional[str], network: str):
+@click.option('--format', '-f', type=click.Choice(['text', 'json']), default='text',
+              help='Output format: text (human-readable) or json (machine-readable)')
+def main(utxo_id: Optional[str], wallet: Optional[str], network: str, format: str):
     """Check detailed status of a subscription"""
     
     network_enum = Network.TESTNET if network == 'testnet' else Network.MAINNET
@@ -208,7 +220,7 @@ def main(utxo_id: Optional[str], wallet: Optional[str], network: str):
         return
     
     if status:
-        print_subscription_status(status)
+        print_subscription_status(status, format)
     else:
         print("Subscription not found or error occurred")
 
