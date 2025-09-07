@@ -76,22 +76,60 @@ To set up the development environment, ensure you have the following prerequisit
 
 - Python 3.8 or higher
 - pip (Python package installer)
+- git (for cloning the repository)
 
 ### Installing Packages
 
-The required packages for this setup are listed in `requirements.txt`. To install these packages, follow the steps below:
+This project requires several Python packages to work properly. All the required packages are listed in the `requirements.txt` file, which makes installation easy and consistent. Follow these step-by-step instructions to get everything set up on your computer:
 
-1. Clone the repository:
+#### Step 1: Get the Code
+First, you need to download the project code to your computer. This is called "cloning" the repository:
 
-    ```bash
-    cd ai-cardano-smart-contracts
-    ```
+```bash
+git clone <repository-url>  # Replace with actual repository URL
+cd contracts
+```
 
-2. Install the required packages:
+#### Step 2: Set Up a Safe Working Space
+For this project its a good idea to create a virtual enviornment. 
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+With the following command you can create the enviornment: 
+```bash
+python -m venv venv
+```
+
+Now activate (turn on) this virtual environment:
+
+```bash
+# On macOS/Linux:
+source venv/bin/activate
+
+# On Windows:
+venv\Scripts\activate
+```
+
+#### Step 3: Install the Main Packages
+Now install all the packages the project needs to run:
+
+```bash
+pip install -r requirements.txt
+```
+
+#### Step 4: Install Development Tools (Optional but Recommended)
+If you want to run tests or contribute to the project, also install the development packages:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+#### Verification
+To make sure everything installed correctly, you can run this simple test:
+
+```bash
+python -c "import torch, transformers, pycardano; print('All packages installed successfully!')"
+```
+
+If you see the success message, you're all set! If you get an error, double-check that you followed all the steps above.
 
 ### Key Dependencies
 - **torch**: PyTorch for AI model inference
