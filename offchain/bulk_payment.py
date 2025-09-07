@@ -282,7 +282,12 @@ def main(wallet: str, limit: int, dry_run: bool, simulate: bool, network: str):
     print(f"\n🔍 Found {len(redeemable_subs)} redeemable subscriptions for {wallet}")
     
     if not dry_run:
-        confirm = click.confirm(f"\nProceed with bulk payment redemption for up to {limit} subscriptions?")
+        # Calculate total payment value for confirmation
+        subs_to_process = redeemable_subs[:limit]
+        total_payment_ada = sum(sub['payment_amount_ada'] for sub in subs_to_process)
+        
+        print(f"WARNING: This will process {len(subs_to_process)} subscription payments totaling {total_payment_ada:.6f} ADA")
+        confirm = click.confirm(f"Are you sure you want to proceed with bulk payment redemption?", default=False)
         if not confirm:
             print("Bulk payment cancelled.")
             return

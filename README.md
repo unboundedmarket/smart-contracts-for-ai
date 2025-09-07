@@ -327,7 +327,7 @@ python offchain/bulk_payment.py --wallet owner1 --simulate
 # Process bulk payments (dry run)
 python offchain/bulk_payment.py --wallet owner1 --limit 5 --dry-run
 
-# Execute bulk payment processing
+# Execute bulk payment processing (includes safety confirmation prompt)
 python offchain/bulk_payment.py --wallet owner1 --limit 3
 ```
 
