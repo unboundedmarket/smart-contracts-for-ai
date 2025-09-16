@@ -28,7 +28,7 @@ from onchain import contract
 from opshin.prelude import FinitePOSIXTime
 
 
-def find_redeemable_subscriptions(model_owner_address) -> List[dict]:
+vltdef find_redeemable_subscriptions(model_owner_address, quiet: bool = False) -> List[dict]:
     """Find all subscriptions where payments are due for a model owner"""
     script, _, script_address = get_contract("contract")
     model_owner_pkh = to_address(model_owner_address).payment_credential.credential_hash
@@ -68,7 +68,8 @@ def find_redeemable_subscriptions(model_owner_address) -> List[dict]:
                     redeemable_subscriptions.append(subscription_info)
         
         except Exception as e:
-            print(f"Error parsing UTXO {utxo.input}: {e}")
+            if not quiet:
+                print(f"Error parsing UTXO {utxo.input}: {e}")
             continue
     
     return redeemable_subscriptions
@@ -78,7 +79,8 @@ def create_bulk_payment_transaction(
     model_owner_wallet: str, 
     subscription_limit: int = 5,
     network: Network = Network.TESTNET,
-    dry_run: bool = False
+    dry_run: bool = False,
+    quiet: bool = False
 ) -> Optional[str]:
     """Create a transaction to redeem payments from multiple subscriptions"""
     
@@ -91,27 +93,30 @@ def create_bulk_payment_transaction(
     script, _, script_address = get_contract("contract")
     
     # Find redeemable subscriptions
-    redeemable_subs = find_redeemable_subscriptions(model_owner_address)
+    redeemable_subs = find_redeemable_subscriptions(model_owner_address, quiet)
     
     if not redeemable_subs:
-        print("No subscriptions with due payments found.")
+        if not quiet:
+            print("No subscriptions with due payments found.")
         return None
     
     # Limit the number of subscriptions to process
     subs_to_process = redeemable_subs[:subscription_limit]
     
-    print(f"\nProcessing {len(subs_to_process)} subscriptions:")
-    total_payment_ada = 0
-    
-    for i, sub in enumerate(subs_to_process, 1):
-        print(f"  {i}. {sub['payment_amount_ada']:.6f} ADA from {sub['owner_pubkeyhash'][:16]}... "
-              f"(overdue by {sub['days_overdue']} days)")
-        total_payment_ada += sub['payment_amount_ada']
-    
-    print(f"\nTotal payment to redeem: {total_payment_ada:.6f} ADA")
+    if not quiet:
+        print(f"\nProcessing {len(subs_to_process)} subscriptions:")
+        total_payment_ada = 0
+        
+        for i, sub in enumerate(subs_to_process, 1):
+            print(f"  {i}. {sub['payment_amount_ada']:.6f} ADA from {sub['owner_pubkeyhash'][:16]}... "
+                  f"(overdue by {sub['days_overdue']} days)")
+            total_payment_ada += sub['payment_amount_ada']
+        
+        print(f"\nTotal payment to redeem: {total_payment_ada:.6f} ADA")
     
     if dry_run:
-        print("\n🔍 Dry run mode - transaction not submitted")
+        if not quiet:
+            print("\n🔍 Dry run mode - transaction not submitted")
         return None
     
     try:
@@ -202,27 +207,32 @@ def create_bulk_payment_transaction(
         context.submit_tx(signed_tx.to_cbor())
         
         tx_id = str(signed_tx.id)
-        print(f"\n✅ Bulk payment transaction submitted!")
-        print(f"Transaction ID: {tx_id}")
-        print(f"Cardanoscan: https://preprod.cardanoscan.io/transaction/{tx_id}")
+        if not quiet:
+            print(f"\n✅ Bulk payment transaction submitted!")
+            print(f"Transaction ID: {tx_id}")
+            print(f"Cardanoscan: https://preprod.cardanoscan.io/transaction/{tx_id}")
+        else:
+            print(tx_id)  # Just print the transaction ID in quiet mode
         
         return tx_id
         
     except Exception as e:
-        print(f"\n❌ Error creating bulk payment transaction: {e}")
+        if not quiet:
+            print(f"\n❌ Error creating bulk payment transaction: {e}")
         return None
 
 
-def simulate_bulk_payment_savings(model_owner_wallet: str, network: Network = Network.TESTNET):
+def simulate_bulk_payment_savings(model_owner_wallet: str, network: Network = Network.TESTNET, quiet: bool = False):
     """Simulate potential savings from bulk payment processing"""
     model_owner_vkey, model_owner_skey, model_owner_address = get_signing_info(
         model_owner_wallet, network=network
     )
     
-    redeemable_subs = find_redeemable_subscriptions(model_owner_address)
+    redeemable_subs = find_redeemable_subscriptions(model_owner_address, quiet)
     
     if not redeemable_subs:
-        print("No redeemable subscriptions found.")
+        if not quiet:
+            print("No redeemable subscriptions found.")
         return
     
     # Estimate transaction fees (simplified)
@@ -237,19 +247,23 @@ def simulate_bulk_payment_savings(model_owner_wallet: str, network: Network = Ne
     
     total_payment_ada = sum(sub['payment_amount_ada'] for sub in redeemable_subs)
     
-    print(f"\n💰 Bulk Payment Simulation")
-    print("=" * 40)
-    print(f"Redeemable Subscriptions: {len(redeemable_subs)}")
-    print(f"Total Payment Value: {total_payment_ada:.6f} ADA")
-    print(f"\n📊 Fee Comparison:")
-    print(f"Individual Transactions: {individual_tx_fees:.6f} ADA")
-    print(f"Bulk Transaction: {bulk_tx_fee:.6f} ADA")
-    print(f"Estimated Savings: {savings_ada:.6f} ADA ({savings_percent:.1f}%)")
-    
-    if len(redeemable_subs) > 1:
-        print(f"\n✅ Bulk processing recommended for {len(redeemable_subs)} subscriptions")
+    if quiet:
+        # Quiet mode: CSV output for automation
+        print(f"{len(redeemable_subs)},{total_payment_ada:.6f},{savings_ada:.6f},{savings_percent:.1f}")
     else:
-        print(f"\n💡 Single subscription - no bulk processing benefit")
+        print(f"\n💰 Bulk Payment Simulation")
+        print("=" * 40)
+        print(f"Redeemable Subscriptions: {len(redeemable_subs)}")
+        print(f"Total Payment Value: {total_payment_ada:.6f} ADA")
+        print(f"\n📊 Fee Comparison:")
+        print(f"Individual Transactions: {individual_tx_fees:.6f} ADA")
+        print(f"Bulk Transaction: {bulk_tx_fee:.6f} ADA")
+        print(f"Estimated Savings: {savings_ada:.6f} ADA ({savings_percent:.1f}%)")
+        
+        if len(redeemable_subs) > 1:
+            print(f"\n✅ Bulk processing recommended for {len(redeemable_subs)} subscriptions")
+        else:
+            print(f"\n💡 Single subscription - no bulk processing benefit")
 
 
 @click.command()
@@ -259,13 +273,14 @@ def simulate_bulk_payment_savings(model_owner_wallet: str, network: Network = Ne
 @click.option('--simulate', '-s', is_flag=True, help='Show potential savings from bulk processing')
 @click.option('--network', '-n', type=click.Choice(['testnet', 'mainnet']), default='testnet',
               help='Network to use')
-def main(wallet: str, limit: int, dry_run: bool, simulate: bool, network: str):
+@click.option('--quiet', '-q', is_flag=True, help='Quiet mode: minimal output suitable for scripts')
+def main(wallet: str, limit: int, dry_run: bool, simulate: bool, network: str, quiet: bool):
     """Process multiple subscription payments in bulk"""
     
     network_enum = Network.TESTNET if network == 'testnet' else Network.MAINNET
     
     if simulate:
-        simulate_bulk_payment_savings(wallet, network_enum)
+        simulate_bulk_payment_savings(wallet, network_enum, quiet)
         return
     
     # Find and display redeemable subscriptions
@@ -273,15 +288,17 @@ def main(wallet: str, limit: int, dry_run: bool, simulate: bool, network: str):
         wallet, network=network_enum
     )
     
-    redeemable_subs = find_redeemable_subscriptions(model_owner_address)
+    redeemable_subs = find_redeemable_subscriptions(model_owner_address, quiet)
     
     if not redeemable_subs:
-        print(f"No subscriptions with due payments found for {wallet}")
+        if not quiet:
+            print(f"No subscriptions with due payments found for {wallet}")
         return
     
-    print(f"\n🔍 Found {len(redeemable_subs)} redeemable subscriptions for {wallet}")
+    if not quiet:
+        print(f"\n🔍 Found {len(redeemable_subs)} redeemable subscriptions for {wallet}")
     
-    if not dry_run:
+    if not dry_run and not quiet:
         # Calculate total payment value for confirmation
         subs_to_process = redeemable_subs[:limit]
         total_payment_ada = sum(sub['payment_amount_ada'] for sub in subs_to_process)
@@ -297,10 +314,11 @@ def main(wallet: str, limit: int, dry_run: bool, simulate: bool, network: str):
         wallet, 
         subscription_limit=limit,
         network=network_enum,
-        dry_run=dry_run
+        dry_run=dry_run,
+        quiet=quiet
     )
     
-    if tx_id and not dry_run:
+    if tx_id and not dry_run and not quiet:
         print(f"\n🎉 Successfully processed bulk payment!")
         print(f"Monitor the transaction status on Cardanoscan.")
 

@@ -29,7 +29,7 @@ def get_subscription_by_utxo(utxo_id: str) -> Optional[dict]:
         tx_id, index = utxo_id.split('#')
         index = int(index)
     except ValueError:
-        print(f"Invalid UTXO ID format. Use: transaction_id#index")
+        # Return None silently on format error in quiet mode
         return None
     
     for utxo in context.utxos(script_address):
@@ -39,10 +39,10 @@ def get_subscription_by_utxo(utxo_id: str) -> Optional[dict]:
                 datum = contract.SubscriptionDatum.from_cbor(utxo.output.datum.cbor)
                 return analyze_subscription_status(datum, utxo)
             except Exception as e:
-                print(f"Error parsing subscription datum: {e}")
+                # Error handling can be quiet for automation
                 return None
     
-    print(f"Subscription with UTXO ID {utxo_id} not found")
+    # Return None silently if not found
     return None
 
 
@@ -61,11 +61,11 @@ def get_user_subscription(wallet_name: str, network: Network) -> Optional[dict]:
             except Exception as e:
                 continue
         
-        print(f"No subscription found for wallet {wallet_name}")
+        # Return None silently if no subscription found
         return None
         
     except Exception as e:
-        print(f"Error loading wallet {wallet_name}: {e}")
+        # Return None silently on error
         return None
 
 
@@ -138,7 +138,7 @@ def analyze_subscription_status(datum: contract.SubscriptionDatum, utxo) -> dict
     }
 
 
-def print_subscription_status(status: dict, output_format: str = "text"):
+def print_subscription_status(status: dict, output_format: str = "text", quiet: bool = False):
     """Pretty print subscription status or output as JSON"""
     if output_format == "json":
         # Convert datetime objects to strings for JSON serialization
@@ -146,6 +146,11 @@ def print_subscription_status(status: dict, output_format: str = "text"):
         json_status['next_payment_date'] = status['next_payment_date'].strftime('%Y-%m-%d %H:%M:%S UTC')
         json_status['estimated_end_date'] = status['estimated_end_date'].strftime('%Y-%m-%d %H:%M:%S UTC')
         print(json.dumps(json_status, indent=2, default=str))
+        return
+    
+    if quiet:
+        # Quiet mode: CSV output for automation
+        print(f"{status['utxo_id']},{status['status']},{status['payment_amount_ada']},{status['current_balance_ada']},{status['payments_remaining']},{status['days_until_next_payment']}")
         return
     
     # Original text output
@@ -206,7 +211,8 @@ def print_subscription_status(status: dict, output_format: str = "text"):
               help='Network to use')
 @click.option('--format', '-f', type=click.Choice(['text', 'json']), default='text',
               help='Output format: text (human-readable) or json (machine-readable)')
-def main(utxo_id: Optional[str], wallet: Optional[str], network: str, format: str):
+@click.option('--quiet', '-q', is_flag=True, help='Quiet mode: minimal output suitable for scripts')
+def main(utxo_id: Optional[str], wallet: Optional[str], network: str, format: str, quiet: bool):
     """Check detailed status of a subscription"""
     
     network_enum = Network.TESTNET if network == 'testnet' else Network.MAINNET
@@ -216,13 +222,15 @@ def main(utxo_id: Optional[str], wallet: Optional[str], network: str, format: st
     elif wallet:
         status = get_user_subscription(wallet, network_enum)
     else:
-        print("Please provide either --utxo-id or --wallet parameter")
+        if not quiet:
+            print("Please provide either --utxo-id or --wallet parameter")
         return
     
     if status:
-        print_subscription_status(status, format)
+        print_subscription_status(status, format, quiet)
     else:
-        print("Subscription not found or error occurred")
+        if not quiet:
+            print("Subscription not found or error occurred")
 
 
 if __name__ == "__main__":

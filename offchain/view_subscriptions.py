@@ -61,7 +61,7 @@ def format_subscription_info(datum: contract.SubscriptionDatum, utxo, current_ba
     }
 
 
-def get_subscriptions_for_user(user_address) -> List[dict]:
+def get_subscriptions_for_user(user_address, quiet: bool = False) -> List[dict]:
     """Get all subscriptions where user is the owner"""
     script, _, script_address = get_contract("contract")
     user_pkh = to_address(user_address).payment_credential.credential_hash
@@ -76,13 +76,14 @@ def get_subscriptions_for_user(user_address) -> List[dict]:
                 sub_info = format_subscription_info(datum, utxo, current_balance)
                 subscriptions.append(sub_info)
         except Exception as e:
-            print(f"Error parsing UTXO {utxo.input}: {e}")
+            if not quiet:
+                print(f"Error parsing UTXO {utxo.input}: {e}")
             continue
     
     return subscriptions
 
 
-def get_subscriptions_for_model_owner(model_owner_address) -> List[dict]:
+def get_subscriptions_for_model_owner(model_owner_address, quiet: bool = False) -> List[dict]:
     """Get all subscriptions where user is the model owner"""
     script, _, script_address = get_contract("contract")
     model_owner_pkh = to_address(model_owner_address).payment_credential.credential_hash
@@ -97,13 +98,14 @@ def get_subscriptions_for_model_owner(model_owner_address) -> List[dict]:
                 sub_info = format_subscription_info(datum, utxo, current_balance)
                 subscriptions.append(sub_info)
         except Exception as e:
-            print(f"Error parsing UTXO {utxo.input}: {e}")
+            if not quiet:
+                print(f"Error parsing UTXO {utxo.input}: {e}")
             continue
     
     return subscriptions
 
 
-def get_all_subscriptions() -> List[dict]:
+def get_all_subscriptions(quiet: bool = False) -> List[dict]:
     """Get all active subscriptions in the system"""
     script, _, script_address = get_contract("contract")
     
@@ -116,13 +118,14 @@ def get_all_subscriptions() -> List[dict]:
             sub_info = format_subscription_info(datum, utxo, current_balance)
             subscriptions.append(sub_info)
         except Exception as e:
-            print(f"Error parsing UTXO {utxo.input}: {e}")
+            if not quiet:
+                print(f"Error parsing UTXO {utxo.input}: {e}")
             continue
     
     return subscriptions
 
 
-def print_subscriptions(subscriptions: List[dict], title: str, output_format: str = "text"):
+def print_subscriptions(subscriptions: List[dict], title: str, output_format: str = "text", quiet: bool = False):
     """Pretty print subscription information or output as JSON"""
     if output_format == "json":
         # Prepare JSON output
@@ -137,6 +140,17 @@ def print_subscriptions(subscriptions: List[dict], title: str, output_format: st
             }
         }
         print(json.dumps(json_data, indent=2, default=str))
+        return
+    
+    if quiet:
+        # Quiet mode: minimal output
+        if not subscriptions:
+            print("0")
+            return
+        print(f"{len(subscriptions)}")
+        for sub in subscriptions:
+            status = "PAUSED" if sub['is_paused'] else "OVERDUE" if sub['is_payment_due'] else "ACTIVE"
+            print(f"{sub['utxo_id']},{status},{sub['current_balance_ada']},{sub['payment_amount_ada']}")
         return
     
     # Original text output
@@ -180,7 +194,8 @@ def print_subscriptions(subscriptions: List[dict], title: str, output_format: st
               help='Network to use')
 @click.option('--format', '-f', type=click.Choice(['text', 'json']), default='text',
               help='Output format: text (human-readable) or json (machine-readable)')
-def main(wallet: Optional[str], role: str, network: str, format: str):
+@click.option('--quiet', '-q', is_flag=True, help='Quiet mode: minimal output suitable for scripts')
+def main(wallet: Optional[str], role: str, network: str, format: str, quiet: bool):
     """View subscriptions based on wallet and role"""
     
     network_enum = Network.TESTNET if network == 'testnet' else Network.MAINNET
@@ -190,23 +205,24 @@ def main(wallet: Optional[str], role: str, network: str, format: str):
             _, _, address = get_signing_info(wallet, network=network_enum)
             
             if role == 'user':
-                subscriptions = get_subscriptions_for_user(address)
-                print_subscriptions(subscriptions, f"Subscriptions owned by {wallet}", format)
+                subscriptions = get_subscriptions_for_user(address, quiet)
+                print_subscriptions(subscriptions, f"Subscriptions owned by {wallet}", format, quiet)
             else:  # role == 'owner'
-                subscriptions = get_subscriptions_for_model_owner(address)
-                print_subscriptions(subscriptions, f"Subscriptions managed by {wallet}", format)
+                subscriptions = get_subscriptions_for_model_owner(address, quiet)
+                print_subscriptions(subscriptions, f"Subscriptions managed by {wallet}", format, quiet)
                 
         except Exception as e:
-            print(f"Error loading wallet {wallet}: {e}")
+            if not quiet:
+                print(f"Error loading wallet {wallet}: {e}")
             return
     
     else:
         # Show all subscriptions
-        subscriptions = get_all_subscriptions()
-        print_subscriptions(subscriptions, "All Active Subscriptions", format)
+        subscriptions = get_all_subscriptions(quiet)
+        print_subscriptions(subscriptions, "All Active Subscriptions", format, quiet)
         
-        # Summary statistics (only show in text format)
-        if format == "text":
+        # Summary statistics (only show in text format and non-quiet mode)
+        if format == "text" and not quiet:
             total_subs = len(subscriptions)
             overdue_subs = sum(1 for sub in subscriptions if sub['is_payment_due'])
             total_locked_ada = sum(sub['current_balance_ada'] for sub in subscriptions)
